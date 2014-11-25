@@ -1,18 +1,9 @@
-//-------------------------------------------------------------------------------------------
-//  University of Victoria Computer Science Department
-//	FrameWork for OpenGL application under QT
-//  Course title: Computer Graphics CSC305
-//-------------------------------------------------------------------------------------------
-//These two lines are header guiardians against multiple includes
 #ifndef GLWIDGET_H
 #define GLWIDGET_H
 
 #include <QGLWidget>
-#include <QProgressBar>
-#include "foundation.h"
 #include <QtGui>
 #include <QtOpenGL>
-#include <math.h>
 
 
 //This is our OpenGL Component we built it on top of QGLWidget
@@ -31,8 +22,6 @@ public:
     void openScene(QString fileBuf);
     void saveImage( QString fileBuf);
     void makeImage();
-    void about();
-    void help();
 
 protected:
     //Initialize the OpenGL Graphics Engine
@@ -45,13 +34,6 @@ protected:
     //its attached GLWidget
     void resizeGL(int w, int h);
 
-    //Handle mouse press event in scrollArea
-    void mousePressEvent(QMouseEvent * );
-    void mouseReleaseEvent(QMouseEvent * );
-    //Handle Mouse Move Event
-    void mouseMoveEvent(QMouseEvent * );
-    void wheelEvent(QWheelEvent * );  // for zoom
-
 
 private:
     void clear();
@@ -60,7 +42,7 @@ private:
     QProgressBar* pbar;
     void prepareImageDisplay(QImage* myimage); // converts from Qt to opengl format
     QImage glimage, qtimage;  // paintGL will display the gl formatted image
-    // keep the qtimage around for saving (one is a copy of the other
+    // keep the qtimage around for saving (one is a copy of the other)
 
     float cameraPos;
     QVector<QVector3D> pointLightPositions;

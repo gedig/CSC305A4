@@ -1,13 +1,7 @@
-//-------------------------------------------------------------------------------------------
-//  University of Victoria Computer Science Department 
-//	FrameWork for OpenGL application under QT
-//  Course title: Computer Graphics CSC305
-//-------------------------------------------------------------------------------------------
 #ifndef WINDOW_H
 #define WINDOW_H
 
 #include <QDialog>
-#include <QColorDialog>
 #include "ui_MainWindow.h"
 #include "glwidget.h"
 
@@ -31,13 +25,6 @@ private:
         void openImage();
         void saveImage();        
         void makeImage();
-        void aboutBut();
-        void helpBut();
-
-//protected:
-   //    void  resizeEvent(QResizeEvent * );
-   //      void wheelEvent(QWheelEvent *event);
-
         void on_openSceneButton_clicked();
 };
 

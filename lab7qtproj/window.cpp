@@ -35,7 +35,7 @@ void Window::openImage()
     if (fileBuf=="") return;   // cancelled
    // QMessageBox::information( this, "Qtglskel: Opened image file ", fileBuf, QMessageBox::Ok );
 
-    qDebug()<< "calling open in glwidget "<< fileBuf  NL;
+    qDebug()<< "calling open in glwidget "<< fileBuf;
     m_glWidget->openImage(fileBuf);
 }
 
@@ -49,7 +49,7 @@ void Window::saveImage()
                                tr("Images (*.png *.xpm *.jpg)"));
      if (fileBuf=="") return;   // cancelled
    // QMessageBox::information( this, "Qtglskel: Opened image file ", fileBuf, QMessageBox::Ok );
-    qDebug()<< "calling save in glwidget "<< fileBuf  NL;
+    qDebug()<< "calling save in glwidget "<< fileBuf;
     m_glWidget->saveImage(fileBuf);
 }
 
@@ -57,16 +57,6 @@ void Window::makeImage()
 {
     m_glWidget->makeImage();
 }
-void Window::aboutBut()
-{
-    m_glWidget->about();
-}
-
-void Window::helpBut()
-{
-    m_glWidget->help();
-}
-
 
 void Window::on_openSceneButton_clicked()
 {
@@ -75,6 +65,6 @@ void Window::on_openSceneButton_clicked()
     fileBuf = QFileDialog::getOpenFileName(this,  "SelectScene", "~/", "Text Files (*.txt *.scn)" );
     if (fileBuf=="") return;   // cancelled
 
-    qDebug()<< "calling open in glwidget "<< fileBuf  NL;
+    qDebug()<< "calling open in glwidget "<< fileBuf;
     m_glWidget->openScene(fileBuf);
 }

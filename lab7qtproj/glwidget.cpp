@@ -53,27 +53,8 @@ void GLWidget::resizeGL( int w, int h )
     glFlush();
     glMatrixMode(GL_MODELVIEW);
     glViewport( 0, 0, (GLint)w, (GLint)h );
-    cerr << "gl new size "<< w SEP h NL;
     renderWidth = w;
     renderHeight = h;
-}
-
-// no mouse events in this demo
-void GLWidget::mousePressEvent( QMouseEvent * )
-{
-}
-
-void GLWidget::mouseReleaseEvent( QMouseEvent *)
-{
-}
-
-void GLWidget::mouseMoveEvent ( QMouseEvent * )
-{
-}
-
-// wheel event
-void GLWidget::wheelEvent(QWheelEvent *)
-{
 }
 
 void GLWidget::openImage(QString fileBuf)
@@ -125,7 +106,6 @@ void GLWidget::prepareImageDisplay(QImage* myimage)
 void GLWidget::displayImage()
 {
     if (glimage.width()==0) {
-        cerr << "Null Image\n";
         return;
     } else {
         glRasterPos2i(0,0);
@@ -177,33 +157,5 @@ void GLWidget::makeImage( )
     qtimage=myimage.copy(0, 0,  myimage.width(), myimage.height());
 
     prepareImageDisplay(&myimage);
-}
-
-void GLWidget::about()
-{
-    QString vnum;
-    QString mess, notes;
-    QString title="Images in Qt and Opengl ";
-
-    vnum.setNum ( MYVERSION );
-    mess="Qt OpenGl image demo Release Version: ";
-    mess = mess+vnum;
-    notes = "\n\n News: Every QImage is now on stack, there is no way for memory leak. -- Lucky";
-    mess = mess+notes;
-    QMessageBox::information( this, title, mess, QMessageBox::Ok );
-}
-
-void GLWidget::help()
-{
-    QString vnum;
-    QString mess, notes;
-    QString title="qtglimages";
-
-    vnum.setNum ( MYVERSION);
-    mess="Simple Image Handling in Qt/Opengl by Brian Wyvill Release Version: ";
-    mess = mess+vnum;
-    notes = "\n\n Save and Load images for display.  Also Make an image such as output from a ray tracer. ";
-    mess = mess+notes;
-    QMessageBox::information( this, title, mess, QMessageBox::Ok );
 }
 
