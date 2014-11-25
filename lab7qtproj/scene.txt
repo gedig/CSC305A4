@@ -1,0 +1,3 @@
+camera-z: -100
+point-light: (50, 300, 50)
+circle: (140, 300, 250, 65)
