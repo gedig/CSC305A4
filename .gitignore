@@ -3,6 +3,7 @@ build-lab7-Desktop-Debug/*
 build-qtgl-Desktop-Debug/*
 
 *.user
+*.pdf
 
 # OS generated files #
 ######################

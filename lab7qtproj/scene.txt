@@ -1,3 +1,7 @@
+# camera-z: float
+# point-light: intensity:float, x:float, y:float, z:float
+# sphere: radius:float, x: float, y:float, z:float
 camera-z: -100
-point-light: (50, 300, 50)
-circle: (140, 300, 250, 65)
+point-light: 50, 50, 300, 50
+sphere: 140, 300, 250, 65
+sphere: 40, 450, 100, 50

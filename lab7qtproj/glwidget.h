@@ -62,11 +62,11 @@ private:
     QImage glimage, qtimage;  // paintGL will display the gl formatted image
     // keep the qtimage around for saving (one is a copy of the other
 
-    QVector3D cameraPos;
+    float cameraPos;
     QVector<QVector3D> pointLightPositions;
-    QVector<QVector3D> pointLightIntensities;
-    QVector<QVector3D> circlePositions;
-    QVector<int> circleRadii;
+    QVector<float> pointLightIntensities;
+    QVector<QVector3D> spherePositions;
+    QVector<float> sphereRadii;
 };
 
 

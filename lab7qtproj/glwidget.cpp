@@ -33,6 +33,8 @@ void GLWidget::initializeGL()
     glMatrixMode( GL_MODELVIEW );
     glLoadIdentity();
     glPointSize(5);
+
+    cameraPos = -100;
 }
 
 void GLWidget::paintGL()
@@ -86,10 +88,31 @@ void GLWidget::openScene(QString fileBuf)
     QFile sceneFile(fileBuf);
     if (sceneFile.open(QFile::ReadOnly)) {
         QTextStream sceneDataStream(&sceneFile);
-        qDebug() << sceneDataStream.readLine();
+        QString line = sceneDataStream.readLine();
+        QStringList parameterValue;
+        while (!line.isNull()) {
+            if (line[0] != '#') { // Ignores commented lines.
+                parameterValue = line.split(":");
+                if (parameterValue[0] == "sphere") {
+                    QStringList sphereProperties = parameterValue[1].split(",");
+                    sphereRadii.append(sphereProperties[0].toFloat());
+                    spherePositions.append(QVector3D(sphereProperties[1].toFloat(), sphereProperties[2].toFloat(), sphereProperties[3].toFloat()));
+                } else if (parameterValue[0] == "point-light") {
+                    QStringList lightProperties = parameterValue[1].split(",");
+                    pointLightIntensities.append(lightProperties[0].toFloat());
+                    pointLightPositions.append(QVector3D(lightProperties[1].toFloat(), lightProperties[2].toFloat(), lightProperties[3].toFloat()));
+                } else if (parameterValue[0] == "camera-z") {
+                    bool conversionSuccessful = false;
+                    float temp = parameterValue[1].toFloat(&conversionSuccessful);
+                    if (conversionSuccessful)
+                        cameraPos = temp;
+                }
+            }
+            line = sceneDataStream.readLine();
+        }
         sceneFile.close();
     } else {
-        qDebug() << "File open failed, default parameters used.";
+        qDebug() << "File open failed";
     }
 }
 
@@ -122,44 +145,32 @@ void GLWidget::makeImage( )
 {   
     QImage myimage(renderWidth, renderHeight, QImage::Format_RGB32);
 
-    //TODO: Ray trace a simple circle following the tutorial!
-    QVector3D cameraPoint(renderWidth/2, renderHeight/2, -100);
-    double circleRadius = 140;
-    QVector3D circleOrigin(renderWidth/2, renderHeight/2, 65);
+    QVector3D cameraPoint(renderWidth/2, renderHeight/2, cameraPos);
     for (int i = 0; i < renderWidth; i++) {
         for (int j = 0; j < renderHeight; j++) {
             QVector3D pixelPosition(i, j, 0);
             QVector3D directionVector = pixelPosition - cameraPoint;
-            //QVector3D directionVector = pixelPosition + QVector3D(0,0,1);
 
-            // TODO-DG: Loop through every object to test for collision
-            QVector3D rayOriginMinusSphereCenter = cameraPoint - circleOrigin;
-            //QVector3D rayOriginMinusSphereCenter = pixelPosition - circleOrigin;
-            // Ray: R = CameraPoint + t D;
+            // Loop through every object to test for collision
+            for (int k = 0; k < spherePositions.size(); k++) {
+                float sphereRadius = sphereRadii[k];
+                QVector3D sphereOrigin = spherePositions[k];
+                QVector3D rayOriginMinusSphereCenter = cameraPoint - sphereOrigin;
+                // Ray: R = CameraPoint + t D;
 
-            float partA = directionVector.lengthSquared();
-            float partB = QVector3D::dotProduct(directionVector, rayOriginMinusSphereCenter);
-            float partC = rayOriginMinusSphereCenter.lengthSquared() - (circleRadius*circleRadius);
+                float partA = directionVector.lengthSquared();
+                float partB = QVector3D::dotProduct(directionVector, rayOriginMinusSphereCenter);
+                float partC = rayOriginMinusSphereCenter.lengthSquared() - (sphereRadius*sphereRadius);
 
-            float discriminant = (partB * partB) - (partA * partC);
-            if (discriminant >= 0) {
-                // TODO-DG: The ray intersects this sphere. Determine the proper colour for the pixel on the screen.
-                myimage.setPixel(i, j, qRgb(255, 100, 100));
-            } else {
-                // There is no intersection.
-                myimage.setPixel(i, j, qRgb(0, 0, 0));
+                float discriminant = (partB * partB) - (partA * partC);
+                if (discriminant >= 0) {
+                    // TODO-DG: The ray intersects this sphere. Determine the proper colour for the pixel on the screen.
+                    myimage.setPixel(i, j, qRgb(255, 100, 100));
+                } /*else {
+                    // There is no intersection.
+                    //myimage.setPixel(i, j, qRgb(0, 0, 0));
+                }*/
             }
-
-//            QVector3D Z10Position = cameraPoint + 11 * directionVector;
-//            QVector3D distanceToCenter = Z10Position - circleOrigin;
-
-//            double length = distanceToCenter.length();
-
-//            if (length < circleRadius) {
-//                myimage.setPixel(i, j, qRgb(255, 255, 255));
-//            } else {
-//                myimage.setPixel(i, j, qRgb(0,0,0));
-//            }
         }
     }
 
