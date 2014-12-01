@@ -8,13 +8,15 @@ INCLUDEPATH += .
 
 # Input
 HEADERS += glwidget.h \
+    sphere.h \
     window.h
 
 FORMS += MainWindow.ui 
 
 SOURCES += glwidget.cpp \
     main.cpp \
-    window.cpp
+    window.cpp \
+    sphere.cpp
 
 
 QT += opengl

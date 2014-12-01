@@ -4,6 +4,7 @@
 #include <QGLWidget>
 #include <QtGui>
 #include <QtOpenGL>
+#include "sphere.h"
 
 
 //This is our OpenGL Component we built it on top of QGLWidget
@@ -47,8 +48,7 @@ private:
     float cameraPos;
     QVector<QVector3D> pointLightPositions;
     QVector<float> pointLightIntensities;
-    QVector<QVector3D> spherePositions;
-    QVector<float> sphereRadii;
+    QVector<Sphere> sphereList;
 };
 
 

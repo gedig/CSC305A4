@@ -54,8 +54,7 @@ void GLWidget::openScene(QString fileBuf)
 {
     QFile sceneFile(fileBuf);
     if (sceneFile.open(QFile::ReadOnly)) {
-        sphereRadii.clear();
-        spherePositions.clear();
+        sphereList.clear();
         pointLightIntensities.clear();
         pointLightPositions.clear();
         QTextStream sceneDataStream(&sceneFile);
@@ -66,12 +65,14 @@ void GLWidget::openScene(QString fileBuf)
                 parameterValue = line.split(":");
                 if (parameterValue[0] == "sphere") {
                     QStringList sphereProperties = parameterValue[1].split(",");
-                    sphereRadii.append(sphereProperties[0].toFloat());
-                    spherePositions.append(QVector3D(sphereProperties[1].toFloat(), sphereProperties[2].toFloat(), sphereProperties[3].toFloat()));
+                    if (sphereProperties.size() > 3)
+                        sphereList.append(Sphere(QVector3D(sphereProperties[1].toFloat(), sphereProperties[2].toFloat(), sphereProperties[3].toFloat()), sphereProperties[0].toFloat()));
                 } else if (parameterValue[0] == "point-light") {
                     QStringList lightProperties = parameterValue[1].split(",");
-                    pointLightIntensities.append(lightProperties[0].toFloat());
-                    pointLightPositions.append(QVector3D(lightProperties[1].toFloat(), lightProperties[2].toFloat(), lightProperties[3].toFloat()));
+                    if (lightProperties.size() > 3) {
+                        pointLightIntensities.append(lightProperties[0].toFloat());
+                        pointLightPositions.append(QVector3D(lightProperties[1].toFloat(), lightProperties[2].toFloat(), lightProperties[3].toFloat()));
+                    }
                 } else if (parameterValue[0] == "camera-z") {
                     bool conversionSuccessful = false;
                     float temp = parameterValue[1].toFloat(&conversionSuccessful);
@@ -124,9 +125,9 @@ void GLWidget::makeImage( )
             QVector3D directionVector = pixelPosition - cameraPoint;
 
             // Loop through every object to test for collision
-            for (int k = 0; k < spherePositions.size(); k++) {
-                float sphereRadius = sphereRadii[k];
-                QVector3D sphereOrigin = spherePositions[k];
+            for (int k = 0; k < sphereList.size(); k++) {
+                float sphereRadius = sphereList[k].radius;
+                QVector3D sphereOrigin = sphereList[k].origin;
                 QVector3D rayOriginMinusSphereCenter = cameraPoint - sphereOrigin;
                 // Ray: R = CameraPoint + t D;
 
@@ -151,7 +152,7 @@ void GLWidget::makeImage( )
                 // TODO-DG: Evaluate Shading Model and set pixel to that colour
 
                 // cameraPoint + smallestT * directionVector is the point on the closest sphere.
-
+                QVector3D intersectionPoint = cameraPoint + (smallestT * directionVector.normalized());
 
 
                 //Pixel colour L = surface Colour x lightIntensity x max(0,normal.l
