@@ -64,11 +64,17 @@ void GLWidget::openScene(QString fileBuf)
                 parameterValue = line.split(":");
                 if (parameterValue[0] == "sphere") {
                     QStringList sphereProperties = parameterValue[1].split(",");
-                    if (sphereProperties.size() > 3)
+                    if (sphereProperties.size() == 4) {
                         spheres.append(Sphere(QVector3D(sphereProperties[1].toFloat(), sphereProperties[2].toFloat(), sphereProperties[3].toFloat()), sphereProperties[0].toFloat()));
+                    } else if (sphereProperties.size() == 7) {
+                        QColor sphereColour(qRgb(sphereProperties[0].toInt(), sphereProperties[1].toInt(), sphereProperties[2].toInt()));
+                        float sphereRadius(sphereProperties[3].toFloat());
+                        QVector3D spherePosition(sphereProperties[4].toFloat(), sphereProperties[5].toFloat(), sphereProperties[6].toFloat());
+                        spheres.append(Sphere(spherePosition, sphereRadius, sphereColour));
+                    }
                 } else if (parameterValue[0] == "point-light") {
                     QStringList lightProperties = parameterValue[1].split(",");
-                    if (lightProperties.size() == 4) {
+                    if (lightProperties.size() == 3) {
                         pointLights.append(PointLight(QVector3D(lightProperties[1].toFloat(), lightProperties[2].toFloat(), lightProperties[3].toFloat()),lightProperties[0].toFloat()));
                     } else if (lightProperties.size() == 6) {
                         QVector3D position(lightProperties[3].toFloat(), lightProperties[4].toFloat(), lightProperties[5].toFloat());
@@ -125,7 +131,7 @@ void GLWidget::makeImage( )
             float smallestT = -1;
             int closestSphereIndex = -1;
             QVector3D pixelPosition(i, j, 0);
-            QVector3D directionVector = pixelPosition - cameraPoint;
+            QVector3D directionVector = (pixelPosition - cameraPoint).normalized();
 
             // Loop through every object to test for collision
             for (int k = 0; k < spheres.size(); k++) {
@@ -149,19 +155,31 @@ void GLWidget::makeImage( )
                 }
             }
             if (closestSphereIndex > -1) {
-                // The index of the closest sphere is closestSphere Index.
-                // TODO-DG: Determine the proper colour for the pixel on the screen.
-                // TODO-DG: Compute n
-                // TODO-DG: Evaluate Shading Model and set pixel to that colour
+                // We have a collision, now we must determine the proper colour
+                    // for the pixel on the screen.
+
+                Sphere hitSphere = spheres[closestSphereIndex];
 
                 // cameraPoint + smallestT * directionVector is the point on the closest sphere.
                 QVector3D intersectionPoint = cameraPoint + (smallestT * directionVector.normalized());
+                QVector3D normalVector = (hitSphere.origin - intersectionPoint).normalized();
+                // TODO-DG: Currently this crudely adds the effects of the last light in the scene.
+                // TODO-DG: Update to take an average
+                float pixelR = 0;
+                float pixelG = 0;
+                float pixelB = 0;
+                for ( int k = 0; k < pointLights.size(); k++) {
+                    QVector3D lVector = (pointLights[k].position - intersectionPoint).normalized();
+                    pixelR += hitSphere.surfaceColour.redF()*pointLights[k].colour.redF()*qMax(0.0f, (float)QVector3D::dotProduct(normalVector,lVector));
+                    pixelG += hitSphere.surfaceColour.greenF()*pointLights[k].colour.greenF()*qMax(0.0f, (float)QVector3D::dotProduct(normalVector,lVector));
+                    pixelB += hitSphere.surfaceColour.blueF()*pointLights[k].colour.blueF()*qMax(0.0f, (float)QVector3D::dotProduct(normalVector,lVector));
+                }
 
 
                 //Pixel colour L = surface Colour x lightIntensity x max(0,normal.l
                 // l is computed by subtracting intersection point from the light source position
 
-                myimage.setPixel(i, j, qRgb(255, 100, 100));
+                myimage.setPixel(i, j, qRgb(pixelR*255, pixelG*255, pixelB*255));
             } else {
                 // TODO-DG: If no intersections with spheres, try intersecting with planes.
                 myimage.setPixel(i, j, qRgb(0, 0, 0));

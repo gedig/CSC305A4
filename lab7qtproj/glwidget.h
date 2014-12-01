@@ -2,6 +2,7 @@
 #define GLWIDGET_H
 
 #include <QGLWidget>
+#include <QtGlobal>
 #include <QtGui>
 #include <QtOpenGL>
 #include "pointlight.h"
