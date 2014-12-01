@@ -4,7 +4,7 @@
 # Multiple point lights can be defined.
 # sphere: radius:float, x: float, y:float, z:float
 # Multiple spheres can be defined.
-camera-z: -100
+camera-z: -500
 point-light: 50, 50, 300, 50
-sphere: 140, 300, 250, 65
-sphere: 40, 450, 100, 50
+sphere: 140, 300, 250, 180
+sphere: 60, 350, 100, 70

@@ -156,7 +156,7 @@ void GLWidget::makeImage( )
 
                 //Pixel colour L = surface Colour x lightIntensity x max(0,normal.l
                 // l is computed by subtracting intersection point from the light source position
-
+                
                 myimage.setPixel(i, j, qRgb(255, 100, 100));
             } else {
                 // TODO-DG: If no intersections with spheres, try intersecting with planes.
