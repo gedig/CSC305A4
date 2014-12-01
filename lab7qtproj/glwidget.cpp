@@ -54,9 +54,8 @@ void GLWidget::openScene(QString fileBuf)
 {
     QFile sceneFile(fileBuf);
     if (sceneFile.open(QFile::ReadOnly)) {
-        sphereList.clear();
-        pointLightIntensities.clear();
-        pointLightPositions.clear();
+        spheres.clear();
+        pointLights.clear();
         QTextStream sceneDataStream(&sceneFile);
         QString line = sceneDataStream.readLine();
         QStringList parameterValue;
@@ -66,12 +65,16 @@ void GLWidget::openScene(QString fileBuf)
                 if (parameterValue[0] == "sphere") {
                     QStringList sphereProperties = parameterValue[1].split(",");
                     if (sphereProperties.size() > 3)
-                        sphereList.append(Sphere(QVector3D(sphereProperties[1].toFloat(), sphereProperties[2].toFloat(), sphereProperties[3].toFloat()), sphereProperties[0].toFloat()));
+                        spheres.append(Sphere(QVector3D(sphereProperties[1].toFloat(), sphereProperties[2].toFloat(), sphereProperties[3].toFloat()), sphereProperties[0].toFloat()));
                 } else if (parameterValue[0] == "point-light") {
                     QStringList lightProperties = parameterValue[1].split(",");
-                    if (lightProperties.size() > 3) {
-                        pointLightIntensities.append(lightProperties[0].toFloat());
-                        pointLightPositions.append(QVector3D(lightProperties[1].toFloat(), lightProperties[2].toFloat(), lightProperties[3].toFloat()));
+                    if (lightProperties.size() == 4) {
+                        pointLights.append(PointLight(QVector3D(lightProperties[1].toFloat(), lightProperties[2].toFloat(), lightProperties[3].toFloat()),lightProperties[0].toFloat()));
+                    } else if (lightProperties.size() == 6) {
+                        QVector3D position(lightProperties[3].toFloat(), lightProperties[4].toFloat(), lightProperties[5].toFloat());
+                        QColor colour(qRgb(lightProperties[0].toFloat(), lightProperties[1].toFloat(), lightProperties[2].toFloat()));
+
+                        pointLights.append(PointLight(position, colour));
                     }
                 } else if (parameterValue[0] == "camera-z") {
                     bool conversionSuccessful = false;
@@ -125,9 +128,9 @@ void GLWidget::makeImage( )
             QVector3D directionVector = pixelPosition - cameraPoint;
 
             // Loop through every object to test for collision
-            for (int k = 0; k < sphereList.size(); k++) {
-                float sphereRadius = sphereList[k].radius;
-                QVector3D sphereOrigin = sphereList[k].origin;
+            for (int k = 0; k < spheres.size(); k++) {
+                float sphereRadius = spheres[k].radius;
+                QVector3D sphereOrigin = spheres[k].origin;
                 QVector3D rayOriginMinusSphereCenter = cameraPoint - sphereOrigin;
                 // Ray: R = CameraPoint + t D;
 

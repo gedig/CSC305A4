@@ -1,6 +1,7 @@
 # camera-z: float
 # Only one camera-z value can be used, so only the last one in the file will be read.
 # point-light: intensity:float, x:float, y:float, z:float
+# point-light: intensity-r:float, intensity-g:float, intensity-b:float, x:float, y:float, z:float
 # Multiple point lights can be defined.
 # sphere: radius:float, x: float, y:float, z:float
 # Multiple spheres can be defined.

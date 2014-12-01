@@ -4,6 +4,7 @@
 #include <QGLWidget>
 #include <QtGui>
 #include <QtOpenGL>
+#include "pointlight.h"
 #include "sphere.h"
 
 
@@ -46,9 +47,8 @@ private:
     // keep the qtimage around for saving (one is a copy of the other)
 
     float cameraPos;
-    QVector<QVector3D> pointLightPositions;
-    QVector<float> pointLightIntensities;
-    QVector<Sphere> sphereList;
+    QVector<PointLight> pointLights;
+    QVector<Sphere> spheres;
 };
 
 
