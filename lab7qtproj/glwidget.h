@@ -48,6 +48,7 @@ private:
     // keep the qtimage around for saving (one is a copy of the other)
 
     float cameraPos;
+    QColor ambientColour;
     QVector<PointLight> pointLights;
     QVector<Sphere> spheres;
 };

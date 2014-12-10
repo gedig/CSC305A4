@@ -8,27 +8,31 @@ Sphere::Sphere() :
 Sphere::Sphere(float x, float y, float z, float radius) :
     origin(QVector3D(x,y,z)),
     radius(radius),
-    surfaceColour(QColor(qRgb(100,100,100)))
+    surfaceColour(QColor(qRgb(100,100,100))),
+    phongExponent(10)
 {
 }
 
 Sphere::Sphere(QVector3D origin, float radius) :
     origin(origin),
     radius(radius),
-    surfaceColour(QColor(qRgb(100,100,100)))
+    surfaceColour(QColor(qRgb(100,100,100))),
+    phongExponent(10)
 {
 }
 
-Sphere::Sphere(float x, float y, float z, float radius, QColor colour) :
+Sphere::Sphere(float x, float y, float z, float radius, QColor colour, int phong) :
     origin(QVector3D(x,y,z)),
     radius(radius),
-    surfaceColour(colour)
+    surfaceColour(colour),
+    phongExponent(phong)
 {
 }
 
-Sphere::Sphere(QVector3D origin, float radius, QColor colour) :
+Sphere::Sphere(QVector3D origin, float radius, QColor colour, int phong) :
     origin(origin),
     radius(radius),
-    surfaceColour(colour)
+    surfaceColour(colour),
+    phongExponent(phong)
 {
 }

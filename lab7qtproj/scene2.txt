@@ -1,0 +1,18 @@
+# camera-z: float
+# Only one camera-z value can be used, so only the last one in the file will be read.
+# ambient-light: red:int, green:int, blue:int
+# Only one ambient-light can be defined for the scene.
+# point-light: x:float, y:float, z:float
+# point-light: intensity-r:float, intensity-g:float, intensity-b:float, x:float, y:float, z:float
+# Multiple point lights can be defined.
+# sphere: radius:float, x: float, y:float, z:float
+# sphere: colour-r:int, colour-g:int, colour-b:int, radius:float, x: float, y:float, z:float
+# sphere: phong:int, colour-r:int, colour-g:int, colour-b:int, radius:float, x: float, y:float, z:float
+# Multiple spheres can be defined.
+camera-z: -300
+ambient-light: 40, 40, 40
+point-light: 255, 200, 200, -500, 500, 500
+point-light: 0, 255, 255, 5000, 500, 500
+sphere: 140, 300, 250, 180
+sphere: 10, 255, 50, 50, 60, 350, 100, 70
+sphere: 100, 60, 255, 60, 80, 120, 300, 200

@@ -12,13 +12,14 @@ public:
     Sphere();
     Sphere(float x, float y, float z, float radius);
     Sphere(QVector3D origin, float radius);
-    Sphere(float x, float y, float z, float radius, QColor colour);
-    Sphere(QVector3D origin, float radius, QColor colour);
+    Sphere(float x, float y, float z, float radius, QColor colour, int phong = 10);
+    Sphere(QVector3D origin, float radius, QColor colour, int phong = 10);
 
 public:
     QVector3D origin;
     float radius;
     QColor surfaceColour;
+    int phongExponent;
 };
 
 #endif // SPHERE_H

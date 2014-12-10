@@ -50,6 +50,14 @@ void GLWidget::openImage(QString fileBuf)
     prepareImageDisplay(&myImage);
 }
 
+/**
+ * @brief GLWidget::openScene
+ * @param fileBuf name of the file to open
+ *
+ * This function attempts to open a scene file and, if successful,
+ * parses it and populates the various object lists with the information.
+ *
+ */
 void GLWidget::openScene(QString fileBuf)
 {
     QFile sceneFile(fileBuf);
@@ -66,11 +74,12 @@ void GLWidget::openScene(QString fileBuf)
                     QStringList sphereProperties = parameterValue[1].split(",");
                     if (sphereProperties.size() == 4) {
                         spheres.append(Sphere(QVector3D(sphereProperties[1].toFloat(), sphereProperties[2].toFloat(), sphereProperties[3].toFloat()), sphereProperties[0].toFloat()));
-                    } else if (sphereProperties.size() == 7) {
-                        QColor sphereColour(qRgb(sphereProperties[0].toInt(), sphereProperties[1].toInt(), sphereProperties[2].toInt()));
-                        float sphereRadius(sphereProperties[3].toFloat());
-                        QVector3D spherePosition(sphereProperties[4].toFloat(), sphereProperties[5].toFloat(), sphereProperties[6].toFloat());
-                        spheres.append(Sphere(spherePosition, sphereRadius, sphereColour));
+                    } else if (sphereProperties.size() == 8) {
+                        int phongExponent = sphereProperties[0].toInt();
+                        QColor sphereColour(qRgb(sphereProperties[1].toInt(), sphereProperties[2].toInt(), sphereProperties[3].toInt()));
+                        float sphereRadius(sphereProperties[4].toFloat());
+                        QVector3D spherePosition(sphereProperties[5].toFloat(), sphereProperties[6].toFloat(), sphereProperties[7].toFloat());
+                        spheres.append(Sphere(spherePosition, sphereRadius, sphereColour, phongExponent));
                     }
                 } else if (parameterValue[0] == "point-light") {
                     QStringList lightProperties = parameterValue[1].split(",");
@@ -87,6 +96,13 @@ void GLWidget::openScene(QString fileBuf)
                     float temp = parameterValue[1].toFloat(&conversionSuccessful);
                     if (conversionSuccessful)
                         cameraPos = temp;
+                } else if (parameterValue[0] == "ambient-light") {
+                    QStringList lightProperties = parameterValue[1].split(",");
+                    if (lightProperties.size() == 1) {
+                        ambientColour = QColor(lightProperties[0].toInt(), lightProperties[0].toInt(), lightProperties[0].toInt());
+                    } else if (lightProperties.size() == 3) {
+                        ambientColour = QColor(lightProperties[0].toInt(), lightProperties[1].toInt(), lightProperties[2].toInt());
+                    }
                 }
             }
             line = sceneDataStream.readLine();
@@ -121,6 +137,12 @@ void GLWidget::saveImage( QString fileBuf )
     qtimage.save ( fileBuf );   // note it is the qtimage in the right format for saving
 }
 
+/**
+ * @brief GLWidget::makeImage
+ *
+ * This is the function that loops through each pixel to determine which colour
+ * value it should display.
+ */
 void GLWidget::makeImage( )
 {   
     QImage myimage(renderWidth, renderHeight, QImage::Format_RGB32);
@@ -163,21 +185,48 @@ void GLWidget::makeImage( )
                 // cameraPoint + smallestT * directionVector is the point on the closest sphere.
                 QVector3D intersectionPoint = cameraPoint + (smallestT * directionVector.normalized());
                 QVector3D normalVector = (hitSphere.origin - intersectionPoint).normalized();
+                QVector3D viewVector = (intersectionPoint - cameraPoint).normalized();
                 // TODO-DG: Currently this crudely adds the effects of the last light in the scene.
                 // TODO-DG: Update to take an average
-                float pixelR = 0;
-                float pixelG = 0;
-                float pixelB = 0;
+                float pixelR = hitSphere.surfaceColour.redF()*ambientColour.redF();
+                float pixelG = hitSphere.surfaceColour.greenF()*ambientColour.greenF();
+                float pixelB = hitSphere.surfaceColour.blueF()*ambientColour.blueF();
                 for ( int k = 0; k < pointLights.size(); k++) {
-                    QVector3D lVector = (pointLights[k].position - intersectionPoint).normalized();
-                    pixelR += hitSphere.surfaceColour.redF()*pointLights[k].colour.redF()*qMax(0.0f, (float)QVector3D::dotProduct(normalVector,lVector));
-                    pixelG += hitSphere.surfaceColour.greenF()*pointLights[k].colour.greenF()*qMax(0.0f, (float)QVector3D::dotProduct(normalVector,lVector));
-                    pixelB += hitSphere.surfaceColour.blueF()*pointLights[k].colour.blueF()*qMax(0.0f, (float)QVector3D::dotProduct(normalVector,lVector));
+                    //LAMBERTIAN DIFFUSE SHADING:
+                    // L += surface Colour x lightIntensity x max(0,normal.l)
+                    // l is computed by subtracting intersection point from the light source position
+                    QVector3D lightVector = (pointLights[k].position - intersectionPoint).normalized();
+                    float nDotL = (float)QVector3D::dotProduct(normalVector,lightVector);
+                    if ( nDotL > 0) {
+                        pixelR += hitSphere.surfaceColour.redF()*pointLights[k].colour.redF()*nDotL;
+                        pixelG += hitSphere.surfaceColour.greenF()*pointLights[k].colour.greenF()*nDotL;
+                        pixelB += hitSphere.surfaceColour.blueF()*pointLights[k].colour.blueF()*nDotL;
+                    }
+
+                    //BLINN-PHONG SPECULAR SHADING:
+                    // L += surface specular * lightIntensity * max(0,normal.h)^p
+                    // h is (v + l) normalized.
+                    // p is a Phong exponent, defined on the sphere.
+                    QVector3D halfVector = (viewVector + lightVector).normalized();
+                    float nDotH = (float)QVector3D::dotProduct(normalVector,halfVector);
+                    if (nDotH > 0) {
+                        nDotH = pow(nDotH, hitSphere.phongExponent);
+                        // TODO-DG: Figure out what to use for the specular colour.
+//                        pixelR += hitSphere.surfaceColour.redF()*pointLights[k].colour.redF()*nDotH;
+//                        pixelG += hitSphere.surfaceColour.greenF()*pointLights[k].colour.greenF()*nDotH;
+//                        pixelB += hitSphere.surfaceColour.blueF()*pointLights[k].colour.blueF()*nDotH;
+                        pixelR += 0.8f*pointLights[k].colour.redF()*nDotH;
+                        pixelG += 0.8f*pointLights[k].colour.greenF()*nDotH;
+                        pixelB += 0.8f*pointLights[k].colour.blueF()*nDotH;
+                    }
+
                 }
-
-
-                //Pixel colour L = surface Colour x lightIntensity x max(0,normal.l
-                // l is computed by subtracting intersection point from the light source position
+                if (pixelR > 1.0f)
+                    pixelR = 1.0f;
+                if (pixelG > 1.0f)
+                    pixelG = 1.0f;
+                if (pixelB > 1.0f)
+                    pixelB = 1.0f;
 
                 myimage.setPixel(i, j, qRgb(pixelR*255, pixelG*255, pixelB*255));
             } else {
