@@ -26,3 +26,9 @@ Scene File Format:
 	point-light: 50, 50, 300, 50
 	sphere: 140, 300, 250, 65
 	sphere: 40, 450, 100, 50
+
+Included Features:
+	Complete lighting model; Ambient, Lambertian Diffuse, and Blinn-Phong Specular.
+	Scenes defined in external files, granting the ability to modify the scene without
+		recompiling or even rerunning the application.
+	Ability to export images to png

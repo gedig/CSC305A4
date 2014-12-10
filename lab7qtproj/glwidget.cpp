@@ -150,32 +150,16 @@ void GLWidget::makeImage( )
     QVector3D cameraPoint(renderWidth/2, renderHeight/2, cameraPos);
     for (int i = 0; i < renderWidth; i++) {
         for (int j = 0; j < renderHeight; j++) {
-            float smallestT = -1;
+
             int closestSphereIndex = -1;
+            //QVector3D pixelPosition(i, renderHeight - j - 1, 0); // Accounts for the flip between the image y and world y.
             QVector3D pixelPosition(i, j, 0);
             QVector3D directionVector = (pixelPosition - cameraPoint).normalized();
 
-            // Loop through every object to test for collision
-            for (int k = 0; k < spheres.size(); k++) {
-                float sphereRadius = spheres[k].radius;
-                QVector3D sphereOrigin = spheres[k].origin;
-                QVector3D rayOriginMinusSphereCenter = cameraPoint - sphereOrigin;
-                // Ray: R = CameraPoint + t D;
+            QVector3D intersectionPoint;
 
-                float partA = directionVector.lengthSquared();
-                float partB = QVector3D::dotProduct(directionVector, rayOriginMinusSphereCenter);
-                float partC = rayOriginMinusSphereCenter.lengthSquared() - (sphereRadius*sphereRadius);
+            closestSphereIndex = intersectSpheres(cameraPoint, directionVector, intersectionPoint);
 
-                float discriminant = (partB * partB) - (partA * partC);
-                if (discriminant >= 0) {
-                    float t = (-1*partB -  sqrt(discriminant)) / partA;
-
-                    if (t < smallestT || smallestT == -1) {
-                        smallestT = t;
-                        closestSphereIndex = k;
-                    }
-                }
-            }
             if (closestSphereIndex > -1) {
                 // We have a collision, now we must determine the proper colour
                     // for the pixel on the screen.
@@ -183,41 +167,50 @@ void GLWidget::makeImage( )
                 Sphere hitSphere = spheres[closestSphereIndex];
 
                 // cameraPoint + smallestT * directionVector is the point on the closest sphere.
-                QVector3D intersectionPoint = cameraPoint + (smallestT * directionVector.normalized());
                 QVector3D normalVector = (hitSphere.origin - intersectionPoint).normalized();
                 QVector3D viewVector = (intersectionPoint - cameraPoint).normalized();
+
                 // TODO-DG: Currently this crudely adds the effects of the last light in the scene.
                 // TODO-DG: Update to take an average
+
+                // The initial value is the effect of the ambient lighting.
                 float pixelR = hitSphere.surfaceColour.redF()*ambientColour.redF();
                 float pixelG = hitSphere.surfaceColour.greenF()*ambientColour.greenF();
                 float pixelB = hitSphere.surfaceColour.blueF()*ambientColour.blueF();
                 for ( int k = 0; k < pointLights.size(); k++) {
-                    //LAMBERTIAN DIFFUSE SHADING:
-                    // L += surface Colour x lightIntensity x max(0,normal.l)
-                    // l is computed by subtracting intersection point from the light source position
-                    QVector3D lightVector = (pointLights[k].position - intersectionPoint).normalized();
-                    float nDotL = (float)QVector3D::dotProduct(normalVector,lightVector);
-                    if ( nDotL > 0) {
-                        pixelR += hitSphere.surfaceColour.redF()*pointLights[k].colour.redF()*nDotL;
-                        pixelG += hitSphere.surfaceColour.greenF()*pointLights[k].colour.greenF()*nDotL;
-                        pixelB += hitSphere.surfaceColour.blueF()*pointLights[k].colour.blueF()*nDotL;
-                    }
+                    //QVector3D lightVector = (pointLights[k].position - intersectionPoint).normalized();
+                    QVector3D lightVector = (intersectionPoint - pointLights[k].position).normalized();
+                    QVector3D shadowCollisionPoint;
+                    // Test for objects in between light and intersection point
+                    int shadowSphereIndex = intersectSpheres(intersectionPoint + lightVector, lightVector, shadowCollisionPoint);
+                    // TODO-DG: Figure out why this is intersecting itself in the exact same spot...
+                    if (shadowSphereIndex == -1 || shadowSphereIndex == closestSphereIndex) { // No intersection
+                        //LAMBERTIAN DIFFUSE SHADING:
+                        // L += surface Colour x lightIntensity x max(0,normal.lightVector)
+                        // lightVector is computed by subtracting intersection point from the light source position
+                        float nDotL = (float)QVector3D::dotProduct(normalVector,lightVector);
+                        if ( nDotL > 0) {
+                            pixelR += hitSphere.surfaceColour.redF()*pointLights[k].colour.redF()*nDotL;
+                            pixelG += hitSphere.surfaceColour.greenF()*pointLights[k].colour.greenF()*nDotL;
+                            pixelB += hitSphere.surfaceColour.blueF()*pointLights[k].colour.blueF()*nDotL;
+                        }
 
-                    //BLINN-PHONG SPECULAR SHADING:
-                    // L += surface specular * lightIntensity * max(0,normal.h)^p
-                    // h is (v + l) normalized.
-                    // p is a Phong exponent, defined on the sphere.
-                    QVector3D halfVector = (viewVector + lightVector).normalized();
-                    float nDotH = (float)QVector3D::dotProduct(normalVector,halfVector);
-                    if (nDotH > 0) {
-                        nDotH = pow(nDotH, hitSphere.phongExponent);
-                        // TODO-DG: Figure out what to use for the specular colour.
-//                        pixelR += hitSphere.surfaceColour.redF()*pointLights[k].colour.redF()*nDotH;
-//                        pixelG += hitSphere.surfaceColour.greenF()*pointLights[k].colour.greenF()*nDotH;
-//                        pixelB += hitSphere.surfaceColour.blueF()*pointLights[k].colour.blueF()*nDotH;
-                        pixelR += 0.8f*pointLights[k].colour.redF()*nDotH;
-                        pixelG += 0.8f*pointLights[k].colour.greenF()*nDotH;
-                        pixelB += 0.8f*pointLights[k].colour.blueF()*nDotH;
+                        //BLINN-PHONG SPECULAR SHADING:
+                        // L += surface specular * lightIntensity * max(0,normal.h)^p
+                        // h is (v + l) normalized.
+                        // p is a Phong exponent, defined on the sphere.
+                        QVector3D halfVector = (viewVector + lightVector).normalized();
+                        float nDotH = (float)QVector3D::dotProduct(normalVector,halfVector);
+                        if (nDotH > 0) {
+                            nDotH = pow(nDotH, hitSphere.phongExponent);
+                            // TODO-DG: Figure out what to use for the specular colour of the object.
+    //                        pixelR += hitSphere.surfaceColour.redF()*pointLights[k].colour.redF()*nDotH;
+    //                        pixelG += hitSphere.surfaceColour.greenF()*pointLights[k].colour.greenF()*nDotH;
+    //                        pixelB += hitSphere.surfaceColour.blueF()*pointLights[k].colour.blueF()*nDotH;
+                            pixelR += 0.8f*pointLights[k].colour.redF()*nDotH;
+                            pixelG += 0.8f*pointLights[k].colour.greenF()*nDotH;
+                            pixelB += 0.8f*pointLights[k].colour.blueF()*nDotH;
+                        }
                     }
 
                 }
@@ -228,10 +221,11 @@ void GLWidget::makeImage( )
                 if (pixelB > 1.0f)
                     pixelB = 1.0f;
 
-                myimage.setPixel(i, j, qRgb(pixelR*255, pixelG*255, pixelB*255));
+                myimage.setPixel(i, renderHeight - 1 -j, qRgb(pixelR*255, pixelG*255, pixelB*255));
             } else {
                 // TODO-DG: If no intersections with spheres, try intersecting with planes.
-                myimage.setPixel(i, j, qRgb(0, 0, 0));
+
+                myimage.setPixel(i, renderHeight - 1 - j, qRgb(0, 0, 0));
             }
         }
     }
@@ -239,5 +233,46 @@ void GLWidget::makeImage( )
     qtimage=myimage.copy(0, 0,  myimage.width(), myimage.height());
 
     prepareImageDisplay(&myimage);
+}
+
+/**
+ * @brief intersectSphere
+ * @param initialPoint
+ * @param direction
+ * @param intersectionPoint passed in by reference, this will be updated to the point where the ray intersects the sphere
+ * @return the distance to the closest sphere intersected, or -1 if none.
+ *
+ * Utility function to easily test for ray-sphere intersection.
+ */
+int GLWidget::intersectSpheres(QVector3D initialPosition, QVector3D direction, QVector3D& intersectionPoint)
+{
+    float smallestT = -1;
+    int closestSphereIndex = -1;
+    // Loop through every object to test for collision
+    for (int i = 0; i < spheres.size(); i++) {
+        float sphereRadius = spheres[i].radius;
+        QVector3D sphereOrigin = spheres[i].origin;
+        QVector3D rayOriginMinusSphereCenter = initialPosition - sphereOrigin;
+        // Ray: R = CameraPoint + t D;
+
+        float partA = direction.lengthSquared();
+        float partB = QVector3D::dotProduct(direction, rayOriginMinusSphereCenter);
+        float partC = rayOriginMinusSphereCenter.lengthSquared() - (sphereRadius*sphereRadius);
+
+        float discriminant = (partB * partB) - (partA * partC);
+        if (discriminant >= 0) {
+            float t = (-1*partB -  sqrt(discriminant)) / partA;
+
+            if (t < smallestT || smallestT == -1) {
+                smallestT = t;
+                closestSphereIndex = i;
+            }
+        }
+    }
+    if (closestSphereIndex > -1) {
+        intersectionPoint = initialPosition + (smallestT * direction.normalized());
+    }
+    return closestSphereIndex;
+
 }
 

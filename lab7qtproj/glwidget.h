@@ -40,10 +40,12 @@ protected:
 
 private:
     void clear();
-    int renderWidth, renderHeight;
     void displayImage();
-    QProgressBar* pbar;
     void prepareImageDisplay(QImage* myimage); // converts from Qt to opengl format
+    int intersectSpheres(QVector3D initialPosition, QVector3D direction, QVector3D& intersectionPoint);
+
+    int renderWidth, renderHeight;
+    QProgressBar* pbar;
     QImage glimage, qtimage;  // paintGL will display the gl formatted image
     // keep the qtimage around for saving (one is a copy of the other)
 
