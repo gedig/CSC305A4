@@ -8,6 +8,8 @@
 #include "pointlight.h"
 #include "sphere.h"
 
+#define VIEW_DISTANCE 7000
+
 
 //This is our OpenGL Component we built it on top of QGLWidget
 class GLWidget : public QGLWidget
@@ -43,14 +45,23 @@ private:
     void displayImage();
     void prepareImageDisplay(QImage* myimage); // converts from Qt to opengl format
     int intersectSpheres(QVector3D initialPosition, QVector3D direction, QVector3D& intersectionPoint);
+    QColor rayColor(QVector3D rayOrigin, QVector3D rayDirection, int timesCalled);
 
     int renderWidth, renderHeight;
     QProgressBar* pbar;
     QImage glimage, qtimage;  // paintGL will display the gl formatted image
     // keep the qtimage around for saving (one is a copy of the other)
 
+    // Scene Attributes
     float cameraPos;
+    int maxRayRecursion;
     QColor ambientColour;
+    float tileSize;
+    float floorReflection;
+    QColor floorMain;
+    QColor floorSecondary;
+
+    // Lists of Scene Objects
     QVector<PointLight> pointLights;
     QVector<Sphere> spheres;
 };
