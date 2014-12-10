@@ -167,8 +167,8 @@ void GLWidget::makeImage( )
                 Sphere hitSphere = spheres[closestSphereIndex];
 
                 // cameraPoint + smallestT * directionVector is the point on the closest sphere.
-                QVector3D normalVector = (hitSphere.origin - intersectionPoint).normalized();
-                QVector3D viewVector = (intersectionPoint - cameraPoint).normalized();
+                QVector3D normalVector = (intersectionPoint - hitSphere.origin).normalized();
+                QVector3D viewVector = (cameraPoint - intersectionPoint).normalized();
 
                 // TODO-DG: Currently this crudely adds the effects of the last light in the scene.
                 // TODO-DG: Update to take an average
@@ -178,13 +178,11 @@ void GLWidget::makeImage( )
                 float pixelG = hitSphere.surfaceColour.greenF()*ambientColour.greenF();
                 float pixelB = hitSphere.surfaceColour.blueF()*ambientColour.blueF();
                 for ( int k = 0; k < pointLights.size(); k++) {
-                    //QVector3D lightVector = (pointLights[k].position - intersectionPoint).normalized();
-                    QVector3D lightVector = (intersectionPoint - pointLights[k].position).normalized();
+                    QVector3D lightVector = (pointLights[k].position - intersectionPoint).normalized();
                     QVector3D shadowCollisionPoint;
                     // Test for objects in between light and intersection point
                     int shadowSphereIndex = intersectSpheres(intersectionPoint + lightVector, lightVector, shadowCollisionPoint);
-                    // TODO-DG: Figure out why this is intersecting itself in the exact same spot...
-                    if (shadowSphereIndex == -1 || shadowSphereIndex == closestSphereIndex) { // No intersection
+                    if (shadowSphereIndex == -1) { // No intersection
                         //LAMBERTIAN DIFFUSE SHADING:
                         // L += surface Colour x lightIntensity x max(0,normal.lightVector)
                         // lightVector is computed by subtracting intersection point from the light source position
@@ -262,10 +260,11 @@ int GLWidget::intersectSpheres(QVector3D initialPosition, QVector3D direction, Q
         float discriminant = (partB * partB) - (partA * partC);
         if (discriminant >= 0) {
             float t = (-1*partB -  sqrt(discriminant)) / partA;
-
-            if (t < smallestT || smallestT == -1) {
-                smallestT = t;
-                closestSphereIndex = i;
+            if (t > 0) {
+                if (t < smallestT || smallestT == -1) {
+                    smallestT = t;
+                    closestSphereIndex = i;
+                }
             }
         }
     }
