@@ -1,5 +1,13 @@
 #include "glwidget.h"
 
+QColor qcolorFromFloat(float r, float g, float b)
+{
+    QColor temp;
+    temp.setRedF(r);
+    temp.setGreenF(g);
+    temp.setBlueF(b);
+    return temp;
+}
 
 GLWidget::GLWidget(QWidget *parent)
     : QGLWidget(parent)
@@ -23,9 +31,10 @@ void GLWidget::initializeGL()
     cameraPos = -100;
     maxRayRecursion = 5;
     tileSize = 1000;
-    floorReflection = 0.5f;
-    floorMain = qRgb(0,0,0);
-    floorSecondary = qRgb(255, 255, 255);
+
+    // Defaults to "Obsidian" and White from: http://globe3d.sourceforge.net/g3d_html/gl-materials__ads.htm
+    floorMainMaterial = Material(qcolorFromFloat(0.05375, 0.05, 0.06625), qcolorFromFloat(0.18275, 0.17, 0.22525), qcolorFromFloat(0.332741, 0.328634, 0.346435), 38.4);
+    floorSecondaryMaterial = Material(qcolorFromFloat(0.0, 0.0, 0.0), qcolorFromFloat(0.992157, 0.992157, 0.992157), qcolorFromFloat(0.0225, 0.0225, 0.0225), 12.8);
 }
 
 void GLWidget::paintGL()
@@ -74,17 +83,17 @@ void GLWidget::openScene(QString fileBuf)
         QStringList parameterValue;
         while (!line.isNull()) {
             if (line[0] != '#') { // Ignores commented lines.
-                parameterValue = line.split(":");
+                QStringList ignoreInlineComments = line.split("#");
+                parameterValue = ignoreInlineComments[0].split(":");
                 if (parameterValue[0] == "sphere") {
                     QStringList sphereProperties = parameterValue[1].split(",");
                     if (sphereProperties.size() == 4) {
                         spheres.append(Sphere(QVector3D(sphereProperties[1].toFloat(), sphereProperties[2].toFloat(), sphereProperties[3].toFloat()), sphereProperties[0].toFloat()));
-                    } else if (sphereProperties.size() == 8) {
-                        float reflection = sphereProperties[0].toFloat();
-                        QColor sphereColour(qRgb(sphereProperties[1].toInt(), sphereProperties[2].toInt(), sphereProperties[3].toInt()));
-                        float sphereRadius(sphereProperties[4].toFloat());
-                        QVector3D spherePosition(sphereProperties[5].toFloat(), sphereProperties[6].toFloat(), sphereProperties[7].toFloat());
-                        spheres.append(Sphere(spherePosition, sphereRadius, sphereColour, reflection));
+                    } else if (sphereProperties.size() == 5) {
+                        QString materialName = sphereProperties[0];
+                        QVector3D spherePosition(sphereProperties[2].toFloat(), sphereProperties[3].toFloat(), sphereProperties[4].toFloat());
+                        float sphereRadius = sphereProperties[1].toFloat();
+                        spheres.append(Sphere(spherePosition, sphereRadius, materials[materialName]));
                     }
                 } else if (parameterValue[0] == "point-light") {
                     QStringList lightProperties = parameterValue[1].split(",");
@@ -112,16 +121,25 @@ void GLWidget::openScene(QString fileBuf)
                     maxRayRecursion = parameterValue[1].toInt();
                 } else if (parameterValue[0] == "tile-size") {
                     tileSize = parameterValue[1].toInt();
-                } else if (parameterValue[0] == "floor") {
-                    QStringList floorProperties = parameterValue[1].split(",");
-                    if (floorProperties.size() == 7) {
-                        floorReflection = floorProperties[0].toFloat();
-                        floorMain = qRgb(floorProperties[1].toInt(), floorProperties[2].toInt(), floorProperties[3].toInt());
-                        floorSecondary = qRgb(floorProperties[4].toInt(), floorProperties[5].toInt(), floorProperties[6].toInt());
-                    } else if (floorProperties.size() == 4) {
-                        floorReflection = floorProperties[0].toFloat();
-                        floorMain = qRgb(floorProperties[1].toInt(), floorProperties[2].toInt(), floorProperties[3].toInt());
-                        floorSecondary = floorMain;
+                } else if (parameterValue[0] == "floor-main") {
+                    floorMainMaterial = materials[parameterValue[1]];
+                } else if (parameterValue[0] == "floor-secondary") {
+                    floorSecondaryMaterial = materials[parameterValue[1]];
+                } else if (parameterValue[0] == "material") {
+                    QStringList materialProperties = parameterValue[1].split(",");
+                    if (materialProperties.size() == 11) {
+                        QColor materialAmbient(materialProperties[1].toInt(), materialProperties[2].toInt(), materialProperties[3].toInt());
+                        QColor materialDiffuse(materialProperties[4].toInt(), materialProperties[5].toInt(), materialProperties[6].toInt());
+                        QColor materialSpecular(materialProperties[7].toInt(), materialProperties[8].toInt(), materialProperties[9].toInt());
+                        materials[materialProperties[0]] = Material(materialAmbient, materialDiffuse, materialSpecular, materialProperties[10].toFloat());
+                    }
+                } else if (parameterValue[0] == "material-float") {
+                    QStringList materialProperties = parameterValue[1].split(",");
+                    if (materialProperties.size() == 11) {
+                        QColor materialAmbient = qcolorFromFloat(materialProperties[1].toFloat(), materialProperties[2].toFloat(), materialProperties[3].toFloat());
+                        QColor materialDiffuse = qcolorFromFloat(materialProperties[4].toFloat(), materialProperties[5].toFloat(), materialProperties[6].toFloat());
+                        QColor materialSpecular = qcolorFromFloat(materialProperties[7].toFloat(), materialProperties[8].toFloat(), materialProperties[9].toFloat());
+                        materials[materialProperties[0]] = Material(materialAmbient, materialDiffuse, materialSpecular, materialProperties[10].toFloat());
                     }
                 }
             }
@@ -247,9 +265,7 @@ QColor GLWidget::rayColor(QVector3D rayOrigin, QVector3D rayDirection, int times
     QVector3D normalVector;
     QVector3D viewVector;
 
-    QColor diffuseColour;
-    float surfaceSpecular;
-    int phongExponent;
+    Material hitMaterial;
     bool calculateLight = false;
 
     if (closestSphereIndex > -1) {
@@ -261,9 +277,7 @@ QColor GLWidget::rayColor(QVector3D rayOrigin, QVector3D rayDirection, int times
         normalVector = (intersectionPoint - hitSphere.origin).normalized();
         viewVector = (rayOrigin - intersectionPoint).normalized();
 
-        diffuseColour = hitSphere.surfaceColour;
-        surfaceSpecular = hitSphere.reflection;
-        phongExponent = hitSphere.phongExponent;
+        hitMaterial = hitSphere.material;
 
         calculateLight = true;
     } else {
@@ -281,19 +295,16 @@ QColor GLWidget::rayColor(QVector3D rayOrigin, QVector3D rayDirection, int times
             if ((int)(intersectionPoint.z() / tileSize) % 2 == 0)
                 mainColour = !mainColour;
 
-            diffuseColour = mainColour ? floorMain : floorSecondary;
-            surfaceSpecular = floorReflection;
-            //TODO-DG: Update this phong
-            phongExponent = 100;
+            hitMaterial = mainColour ? floorMainMaterial : floorSecondaryMaterial;
 
             calculateLight = true;
         }
     }
 
     if (calculateLight) {
-        float pixelR = diffuseColour.redF()*ambientColour.redF();
-        float pixelG = diffuseColour.greenF()*ambientColour.greenF();
-        float pixelB = diffuseColour.blueF()*ambientColour.blueF();
+        float pixelR = hitMaterial.ambient.redF()*ambientColour.redF();
+        float pixelG = hitMaterial.ambient.greenF()*ambientColour.greenF();
+        float pixelB = hitMaterial.ambient.blueF()*ambientColour.blueF();
 
         for ( int i = 0; i < pointLights.size(); i++) {
             QVector3D lightVector = (pointLights[i].position - intersectionPoint).normalized();
@@ -306,9 +317,9 @@ QColor GLWidget::rayColor(QVector3D rayOrigin, QVector3D rayDirection, int times
                 // lightVector is computed by subtracting intersection point from the light source position
                 float nDotL = (float)QVector3D::dotProduct(normalVector,lightVector);
                 if ( nDotL > 0) {
-                    pixelR += diffuseColour.redF()*pointLights[i].colour.redF()*nDotL;
-                    pixelG += diffuseColour.greenF()*pointLights[i].colour.greenF()*nDotL;
-                    pixelB += diffuseColour.blueF()*pointLights[i].colour.blueF()*nDotL;
+                    pixelR += hitMaterial.diffuse.redF()*pointLights[i].colour.redF()*nDotL;
+                    pixelG += hitMaterial.diffuse.greenF()*pointLights[i].colour.greenF()*nDotL;
+                    pixelB += hitMaterial.diffuse.blueF()*pointLights[i].colour.blueF()*nDotL;
                 }
 
                 //BLINN-PHONG SPECULAR SHADING:
@@ -318,11 +329,11 @@ QColor GLWidget::rayColor(QVector3D rayOrigin, QVector3D rayDirection, int times
                 QVector3D halfVector = (viewVector + lightVector).normalized();
                 float nDotH = (float)QVector3D::dotProduct(normalVector,halfVector);
                 if (nDotH > 0) {
-                    nDotH = pow(nDotH, phongExponent);
+                    nDotH = pow(nDotH, hitMaterial.phongExponent);
                     // TODO-DG: Figure out what to use for the specular colour of the object.
-                    pixelR += surfaceSpecular*pointLights[i].colour.redF()*nDotH;
-                    pixelG += surfaceSpecular*pointLights[i].colour.greenF()*nDotH;
-                    pixelB += surfaceSpecular*pointLights[i].colour.blueF()*nDotH;
+                    pixelR += hitMaterial.specular.redF()*pointLights[i].colour.redF()*nDotH;
+                    pixelG += hitMaterial.specular.greenF()*pointLights[i].colour.greenF()*nDotH;
+                    pixelB += hitMaterial.specular.blueF()*pointLights[i].colour.blueF()*nDotH;
                 }
             }
             //SPECULAR REFLECTION:
@@ -330,9 +341,9 @@ QColor GLWidget::rayColor(QVector3D rayOrigin, QVector3D rayDirection, int times
                 QVector3D reflection = rayDirection - 2.0f*(QVector3D::dotProduct(rayDirection, normalVector))*normalVector;
                 // Add specularColor*(recursive call to raycolor) to our colour.
                 QColor tempColor = rayColor(intersectionPoint + reflection.normalized(), reflection.normalized(), timesCalled++);
-                pixelR += surfaceSpecular*tempColor.redF();
-                pixelG += surfaceSpecular*tempColor.greenF();
-                pixelB += surfaceSpecular*tempColor.blueF();
+                pixelR += hitMaterial.specular.redF()*tempColor.redF();
+                pixelG += hitMaterial.specular.greenF()*tempColor.greenF();
+                pixelB += hitMaterial.specular.blueF()*tempColor.blueF();
             }
         }
 

@@ -3,9 +3,7 @@
 
 // Radius and Position
 #include <QVector3D>
-#include <QColor>
-
-#define MAX_PHONG 10000
+#include "material.h"
 
 class Sphere
 {
@@ -14,15 +12,13 @@ public:
     Sphere();
     Sphere(float x, float y, float z, float radius);
     Sphere(QVector3D origin, float radius);
-    Sphere(float x, float y, float z, float radius, QColor colour, float reflection = 0.1f);
-    Sphere(QVector3D origin, float radius, QColor colour, float reflection = 0.1f);
+    Sphere(float x, float y, float z, float radius, Material material);
+    Sphere(QVector3D origin, float radius, Material material);
 
 public:
     QVector3D origin;
     float radius;
-    QColor surfaceColour;
-    float reflection;
-    int phongExponent;
+    Material material;
 };
 
 #endif // SPHERE_H

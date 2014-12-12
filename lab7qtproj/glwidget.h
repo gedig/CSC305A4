@@ -57,13 +57,13 @@ private:
     int maxRayRecursion;
     QColor ambientColour;
     float tileSize;
-    float floorReflection;
-    QColor floorMain;
-    QColor floorSecondary;
+    Material floorMainMaterial;
+    Material floorSecondaryMaterial;
 
     // Lists of Scene Objects
     QVector<PointLight> pointLights;
     QVector<Sphere> spheres;
+    QHash<QString, Material> materials;
 };
 
 

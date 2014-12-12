@@ -10,7 +10,8 @@ INCLUDEPATH += .
 HEADERS += glwidget.h \
     sphere.h \
     window.h \
-    pointlight.h
+    pointlight.h \
+    material.h
 
 FORMS += MainWindow.ui 
 
@@ -18,7 +19,8 @@ SOURCES += glwidget.cpp \
     main.cpp \
     window.cpp \
     sphere.cpp \
-    pointlight.cpp
+    pointlight.cpp \
+    material.cpp
 
 
 QT += opengl
