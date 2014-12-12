@@ -233,6 +233,8 @@ int GLWidget::intersectSpheres(QVector3D initialPosition, QVector3D direction, Q
  * @param rayDirection
  * @param timesCalled a variable that should be incremented each time this method is called recursively.
  * @return a QColor object representing the colour that the ray's intersections determined.
+ *
+ * Method to calculate what colour a shot ray would generate. Called recursively to account for reflections.
  */
 QColor GLWidget::rayColor(QVector3D rayOrigin, QVector3D rayDirection, int timesCalled) {
 
@@ -240,9 +242,15 @@ QColor GLWidget::rayColor(QVector3D rayOrigin, QVector3D rayDirection, int times
     QVector3D intersectionPoint;
 
     closestSphereIndex = intersectSpheres(rayOrigin, rayDirection, intersectionPoint);
-    float pixelR = 0.0f;
-    float pixelG = 0.0f;
-    float pixelB = 0.0f;
+    QColor pixelColour(0,0,0);
+
+    QVector3D normalVector;
+    QVector3D viewVector;
+
+    QColor diffuseColour;
+    float surfaceSpecular;
+    int phongExponent;
+    bool calculateLight = false;
 
     if (closestSphereIndex > -1) {
         // We have a collision, now we must determine the proper colour
@@ -250,21 +258,45 @@ QColor GLWidget::rayColor(QVector3D rayOrigin, QVector3D rayDirection, int times
         Sphere hitSphere = spheres[closestSphereIndex];
 
         // cameraPoint + smallestT * directionVector is the point on the closest sphere.
-        QVector3D normalVector = (intersectionPoint - hitSphere.origin).normalized();
-        QVector3D viewVector = (rayOrigin - intersectionPoint).normalized();
+        normalVector = (intersectionPoint - hitSphere.origin).normalized();
+        viewVector = (rayOrigin - intersectionPoint).normalized();
 
-        // TODO-DG: Currently this crudely adds the effects of the last light in the scene.
-        // TODO-DG: Update to take an average
+        diffuseColour = hitSphere.surfaceColour;
+        surfaceSpecular = hitSphere.reflection;
+        phongExponent = hitSphere.phongExponent;
 
-        // The initial value is the effect of the ambient lighting.
-        pixelR = hitSphere.surfaceColour.redF()*ambientColour.redF();
-        pixelG = hitSphere.surfaceColour.greenF()*ambientColour.greenF();
-        pixelB = hitSphere.surfaceColour.blueF()*ambientColour.blueF();
+        calculateLight = true;
+    } else {
+        // No intersection with a sphere, see if we intersect with the floor.
+        // distance t = (planeNormal dot (point on plane - rayOrigin)) / (planeNormal dot rayDirection)
+        normalVector = QVector3D(0,1,0);
+        float t = QVector3D::dotProduct(normalVector, (QVector3D(0,0,0) - rayOrigin)) / (QVector3D::dotProduct(normalVector, rayDirection));
+        if (t > 0 && t < VIEW_DISTANCE) {
+            intersectionPoint = rayOrigin + t*rayDirection.normalized();
+            viewVector = (rayOrigin - intersectionPoint).normalized();
+            bool mainColour = true;
 
-        float surfaceSpecular = hitSphere.reflection;
+            if ((int)(intersectionPoint.x() / tileSize) % 2 == 0)
+                mainColour = !mainColour;
+            if ((int)(intersectionPoint.z() / tileSize) % 2 == 0)
+                mainColour = !mainColour;
 
-        for ( int k = 0; k < pointLights.size(); k++) {
-            QVector3D lightVector = (pointLights[k].position - intersectionPoint).normalized();
+            diffuseColour = mainColour ? floorMain : floorSecondary;
+            surfaceSpecular = floorReflection;
+            //TODO-DG: Update this phong
+            phongExponent = 100;
+
+            calculateLight = true;
+        }
+    }
+
+    if (calculateLight) {
+        float pixelR = diffuseColour.redF()*ambientColour.redF();
+        float pixelG = diffuseColour.greenF()*ambientColour.greenF();
+        float pixelB = diffuseColour.blueF()*ambientColour.blueF();
+
+        for ( int i = 0; i < pointLights.size(); i++) {
+            QVector3D lightVector = (pointLights[i].position - intersectionPoint).normalized();
             QVector3D shadowCollisionPoint;
             // Test for objects in between light and intersection point
             int shadowSphereIndex = intersectSpheres(intersectionPoint + lightVector, lightVector, shadowCollisionPoint);
@@ -274,9 +306,9 @@ QColor GLWidget::rayColor(QVector3D rayOrigin, QVector3D rayDirection, int times
                 // lightVector is computed by subtracting intersection point from the light source position
                 float nDotL = (float)QVector3D::dotProduct(normalVector,lightVector);
                 if ( nDotL > 0) {
-                    pixelR += hitSphere.surfaceColour.redF()*pointLights[k].colour.redF()*nDotL;
-                    pixelG += hitSphere.surfaceColour.greenF()*pointLights[k].colour.greenF()*nDotL;
-                    pixelB += hitSphere.surfaceColour.blueF()*pointLights[k].colour.blueF()*nDotL;
+                    pixelR += diffuseColour.redF()*pointLights[i].colour.redF()*nDotL;
+                    pixelG += diffuseColour.greenF()*pointLights[i].colour.greenF()*nDotL;
+                    pixelB += diffuseColour.blueF()*pointLights[i].colour.blueF()*nDotL;
                 }
 
                 //BLINN-PHONG SPECULAR SHADING:
@@ -286,11 +318,11 @@ QColor GLWidget::rayColor(QVector3D rayOrigin, QVector3D rayDirection, int times
                 QVector3D halfVector = (viewVector + lightVector).normalized();
                 float nDotH = (float)QVector3D::dotProduct(normalVector,halfVector);
                 if (nDotH > 0) {
-                    nDotH = pow(nDotH, hitSphere.phongExponent);
+                    nDotH = pow(nDotH, phongExponent);
                     // TODO-DG: Figure out what to use for the specular colour of the object.
-                    pixelR += surfaceSpecular*pointLights[k].colour.redF()*nDotH;
-                    pixelG += surfaceSpecular*pointLights[k].colour.greenF()*nDotH;
-                    pixelB += surfaceSpecular*pointLights[k].colour.blueF()*nDotH;
+                    pixelR += surfaceSpecular*pointLights[i].colour.redF()*nDotH;
+                    pixelG += surfaceSpecular*pointLights[i].colour.greenF()*nDotH;
+                    pixelB += surfaceSpecular*pointLights[i].colour.blueF()*nDotH;
                 }
             }
             //SPECULAR REFLECTION:
@@ -303,84 +335,19 @@ QColor GLWidget::rayColor(QVector3D rayOrigin, QVector3D rayDirection, int times
                 pixelB += surfaceSpecular*tempColor.blueF();
             }
         }
-    } else {
-        // No intersection with a sphere, see if we intersect with the floor.
-        // t = (planeNormal dot (point on plane - rayOrigin)) / (planeNormal dot rayDirection)
-        QVector3D planeNormal(0,1,0);
-        float t = QVector3D::dotProduct(planeNormal, (QVector3D(0,0,0) - rayOrigin)) / (QVector3D::dotProduct(planeNormal, rayDirection));
-        if (t > 0 && t < VIEW_DISTANCE) {
-            intersectionPoint = rayOrigin + t*rayDirection.normalized();
-            bool mainColour = true;
 
-            if ((int)(intersectionPoint.x() / tileSize) % 2 == 0)
-                mainColour = !mainColour;
-            if ((int)(intersectionPoint.z() / tileSize) % 2 == 0)
-                mainColour = !mainColour;
+        // TODO-DG: Currently this crudely adds the effects of the last light in the scene.
+        // TODO-DG: Update to take an average of the entire screen
+        if (pixelR > 1.0f)
+            pixelR = 1.0f;
+        if (pixelG > 1.0f)
+            pixelG = 1.0f;
+        if (pixelB > 1.0f)
+            pixelB = 1.0f;
 
-            QColor floorColour = floorMain;
-            if (!mainColour) {
-                floorColour = floorSecondary;
-            }
-
-            pixelR = floorColour.redF()*ambientColour.redF();
-            pixelG = floorColour.greenF()*ambientColour.greenF();
-            pixelB = floorColour.blueF()*ambientColour.blueF();
-
-            float surfaceSpecular = floorReflection;
-
-            QVector3D viewVector = (rayOrigin - intersectionPoint).normalized();
-
-            for ( int k = 0; k < pointLights.size(); k++) {
-                QVector3D lightVector = (pointLights[k].position - intersectionPoint).normalized();
-                QVector3D shadowCollisionPoint;
-                // Test for objects in between light and intersection point
-                int shadowSphereIndex = intersectSpheres(intersectionPoint + lightVector, lightVector, shadowCollisionPoint);
-                if (shadowSphereIndex == -1) { // No intersection
-                    //LAMBERTIAN DIFFUSE SHADING:
-                    // L += surface Colour x lightIntensity x max(0,normal.lightVector)
-                    // lightVector is computed by subtracting intersection point from the light source position
-                    float nDotL = (float)QVector3D::dotProduct(planeNormal,lightVector);
-                    if ( nDotL > 0) {
-                        pixelR += floorColour.redF()*pointLights[k].colour.redF()*nDotL;
-                        pixelG += floorColour.greenF()*pointLights[k].colour.greenF()*nDotL;
-                        pixelB += floorColour.blueF()*pointLights[k].colour.blueF()*nDotL;
-                    }
-
-                    //BLINN-PHONG SPECULAR SHADING:
-                    // L += surface specular * lightIntensity * max(0,normal.h)^p
-                    // h is (v + l) normalized.
-                    // p is a Phong exponent, defined on the sphere.
-                    QVector3D halfVector = (viewVector + lightVector).normalized();
-                    float nDotH = (float)QVector3D::dotProduct(planeNormal,halfVector);
-                    if (nDotH > 0) {
-                        nDotH = pow(nDotH, (10,000*floorReflection*floorReflection*floorReflection));
-                        // TODO-DG: Figure out what to use for the specular colour of the object.
-                        pixelR += surfaceSpecular*pointLights[k].colour.redF()*nDotH;
-                        pixelG += surfaceSpecular*pointLights[k].colour.greenF()*nDotH;
-                        pixelB += surfaceSpecular*pointLights[k].colour.blueF()*nDotH;
-                    }
-                }
-                //SPECULAR REFLECTION:
-                if (timesCalled < maxRayRecursion) {
-                    QVector3D reflection = rayDirection - 2.0f*(QVector3D::dotProduct(rayDirection, planeNormal))*planeNormal;
-                    // Add specularColor*(recursive call to raycolor) to our colour.
-                    QColor tempColor = rayColor(intersectionPoint + reflection.normalized(), reflection.normalized(), timesCalled++);
-                    pixelR += surfaceSpecular*tempColor.redF();
-                    pixelG += surfaceSpecular*tempColor.greenF();
-                    pixelB += surfaceSpecular*tempColor.blueF();
-                }
-            }
-
-            // TODO-DG: Floor diffuse and specular.
-        }
+       pixelColour = QColor(pixelR*255, pixelG*255, pixelB*255);
     }
-    if (pixelR > 1.0f)
-        pixelR = 1.0f;
-    if (pixelG > 1.0f)
-        pixelG = 1.0f;
-    if (pixelB > 1.0f)
-        pixelB = 1.0f;
 
-    return QColor(pixelR*255, pixelG*255, pixelB*255);
+    return pixelColour;
 }
 
