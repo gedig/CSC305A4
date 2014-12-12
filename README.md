@@ -10,6 +10,7 @@ UI Explanation:
 	Make Image gives the command to render the image with the last scene data provided.
 	Save Image exports the rendered image to png format.
 
+
 Scene File Format:
 	Data for the scene can be saved in a .txt or a .scn file. The format is provided below:
 	# Lines preceded by '#' are ignored by the interpreter, and can be used as comments.
@@ -27,8 +28,27 @@ Scene File Format:
 	sphere: 140, 300, 250, 65
 	sphere: 40, 450, 100, 50
 
+        A complete example can be found in scene.txt
+
+
 Included Features:
 	Complete lighting model; Ambient, Lambertian Diffuse, and Blinn-Phong Specular.
 	Scenes defined in external files, granting the ability to modify the scene without
 		recompiling or even rerunning the application.
+        Ability to define materials and apply them to various objects and surfaces.
 	Ability to export images to png
+
+
+Data Structures Used:
+	Material:
+		A class that defines the various information necessary for calculations in the light model.
+		It includes QColor objects representing the ambient, diffuse, and specular coefficients of the 
+			material, as well as a phongExponent to be used for the specular.
+	PointLight:
+		A pointlight is simply a QVector3D representing its position and a QColor object 
+			representing its intensity and colour.
+	Sphere:
+		A sphere is a QVector3D representing the position, a float radius, and a material.
+		
+	In the application, I have two lists for Spheres and Pointlights, and a hashmap of 
+	Strings and materials so they can be referenced by a name.
