@@ -9,6 +9,12 @@ QColor qcolorFromFloat(float r, float g, float b)
     return temp;
 }
 
+float randomFloat()
+{
+    int random = qrand() % 1000;
+    return (float)random / 1000.f;
+}
+
 GLWidget::GLWidget(QWidget *parent)
     : QGLWidget(parent)
 {
@@ -27,9 +33,13 @@ void GLWidget::clear()
 
 void GLWidget::initializeGL()
 {
+    // Seeds our random number generator (used for jittering)
+    qsrand(QTime::currentTime().msec());
+
     // Default scene values
     cameraPos = -100;
     maxRayRecursion = 5;
+    antialiasing = 16;
     tileSize = 1000;
 
     // Defaults to "Obsidian" and White from: http://globe3d.sourceforge.net/g3d_html/gl-materials__ads.htm
@@ -127,20 +137,30 @@ void GLWidget::openScene(QString fileBuf)
                     floorSecondaryMaterial = materials[parameterValue[1]];
                 } else if (parameterValue[0] == "material") {
                     QStringList materialProperties = parameterValue[1].split(",");
-                    if (materialProperties.size() == 11) {
+                    if (materialProperties.size() >= 11) {
                         QColor materialAmbient(materialProperties[1].toInt(), materialProperties[2].toInt(), materialProperties[3].toInt());
                         QColor materialDiffuse(materialProperties[4].toInt(), materialProperties[5].toInt(), materialProperties[6].toInt());
                         QColor materialSpecular(materialProperties[7].toInt(), materialProperties[8].toInt(), materialProperties[9].toInt());
-                        materials[materialProperties[0]] = Material(materialAmbient, materialDiffuse, materialSpecular, materialProperties[10].toFloat());
+                        if (materialProperties.size() == 12) {
+                            materials[materialProperties[0]] = Material(materialAmbient, materialDiffuse, materialSpecular, materialProperties[10].toFloat(), materialProperties[11].toFloat());
+                        } else {
+                            materials[materialProperties[0]] = Material(materialAmbient, materialDiffuse, materialSpecular, materialProperties[10].toFloat());
+                        }
                     }
                 } else if (parameterValue[0] == "material-float") {
                     QStringList materialProperties = parameterValue[1].split(",");
-                    if (materialProperties.size() == 11) {
+                    if (materialProperties.size() >= 11) {
                         QColor materialAmbient = qcolorFromFloat(materialProperties[1].toFloat(), materialProperties[2].toFloat(), materialProperties[3].toFloat());
                         QColor materialDiffuse = qcolorFromFloat(materialProperties[4].toFloat(), materialProperties[5].toFloat(), materialProperties[6].toFloat());
                         QColor materialSpecular = qcolorFromFloat(materialProperties[7].toFloat(), materialProperties[8].toFloat(), materialProperties[9].toFloat());
-                        materials[materialProperties[0]] = Material(materialAmbient, materialDiffuse, materialSpecular, materialProperties[10].toFloat());
+                        if (materialProperties.size() == 12) {
+                            materials[materialProperties[0]] = Material(materialAmbient, materialDiffuse, materialSpecular, materialProperties[10].toFloat(), materialProperties[11].toFloat());
+                        } else {
+                            materials[materialProperties[0]] = Material(materialAmbient, materialDiffuse, materialSpecular, materialProperties[10].toFloat());
+                        }
                     }
+                } else if (parameterValue[0] == "anti-aliasing") {
+                    antialiasing = parameterValue[1].toInt();
                 }
             }
             line = sceneDataStream.readLine();
@@ -189,12 +209,30 @@ void GLWidget::makeImage( )
     for (int i = 0; i < renderWidth; i++) {
         for (int j = 0; j < renderHeight; j++) {
 
-            QVector3D pixelPosition(i, j, 0);
-            QVector3D directionVector = (pixelPosition - cameraPoint).normalized();
+            float r = 0;
+            float g = 0;
+            float b = 0;
 
-            QColor pixelColor = rayColor(cameraPoint, directionVector, 0);
+            for (int k = 0; k < antialiasing-1; k++) {
+                for (int l = 0; l < antialiasing-1; l++) {
+                    float targetX = i + (k + randomFloat())/16;
+                    float targetY = j + (l + randomFloat())/16;
+                    QVector3D targetPosition(targetX, targetY, 0);
+                    QVector3D directionVector = (targetPosition - cameraPoint).normalized();
 
-            myimage.setPixel(i, renderHeight - 1 -j, pixelColor.rgb());
+                    QColor tempColor = rayColor(cameraPoint, directionVector, 0);
+                    r += tempColor.redF();
+                    g += tempColor.greenF();
+                    b += tempColor.blueF();
+                }
+            }
+            // Takes the average of all the samples.
+            int antialiasingSquared = antialiasing*antialiasing;
+            r /= antialiasingSquared;
+            g /= antialiasingSquared;
+            b /= antialiasingSquared;
+
+            myimage.setPixel(i, renderHeight - 1 -j, qRgb(r*255, g*255, b*255));
         }
     }
 

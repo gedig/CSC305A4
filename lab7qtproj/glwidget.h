@@ -55,6 +55,7 @@ private:
     // Scene Attributes
     float cameraPos;
     int maxRayRecursion;
+    int antialiasing;
     QColor ambientColour;
     float tileSize;
     Material floorMainMaterial;

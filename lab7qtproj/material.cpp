@@ -7,14 +7,16 @@ Material::Material() :
     ambient(51, 51, 51),
     diffuse(201, 201, 201),
     specular(0, 0, 0),
-    phongExponent(0)
+    phongExponent(0),
+    refractionIndex(1.0f)
 {
 }
 
-Material::Material(QColor ambient, QColor diffuse, QColor specular, float shininess):
+Material::Material(QColor ambient, QColor diffuse, QColor specular, float shininess, float refractionIndex):
     ambient(ambient),
     diffuse(diffuse),
     specular(specular),
-    phongExponent(shininess)
+    phongExponent(shininess),
+    refractionIndex(refractionIndex)
 {
 }
