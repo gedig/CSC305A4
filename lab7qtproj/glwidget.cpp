@@ -250,7 +250,7 @@ void GLWidget::makeImage( )
  *
  * Utility function to easily test for ray-sphere intersection.
  */
-int GLWidget::intersectSpheres(QVector3D initialPosition, QVector3D direction, QVector3D& intersectionPoint)
+int GLWidget::intersectSpheres(QVector3D initialPosition, QVector3D direction, QVector3D& intersectionPoint, float& t)
 {
     float smallestT = -1;
     int closestSphereIndex = -1;
@@ -267,10 +267,10 @@ int GLWidget::intersectSpheres(QVector3D initialPosition, QVector3D direction, Q
 
         float discriminant = (partB * partB) - (partA * partC);
         if (discriminant >= 0) {
-            float t = (-1*partB -  sqrt(discriminant)) / partA;
-            if (t > 0) {
-                if (t < smallestT || smallestT == -1) {
-                    smallestT = t;
+            float temp = (-1*partB -  sqrt(discriminant)) / partA;
+            if (temp > 0) {
+                if (temp < smallestT || smallestT == -1) {
+                    smallestT = temp;
                     closestSphereIndex = i;
                 }
             }
@@ -278,9 +278,33 @@ int GLWidget::intersectSpheres(QVector3D initialPosition, QVector3D direction, Q
     }
     if (closestSphereIndex > -1) {
         intersectionPoint = initialPosition + (smallestT * direction.normalized());
+        t = smallestT;
     }
     return closestSphereIndex;
 
+}
+
+/**
+ * @brief refract
+ * @param direction
+ * @param normal
+ * @param refractiveIndex
+ * @param outbound Reference to a vector to be populated with the outbound vector
+ * @return false if there is total internal reflection, true otherwise.
+ *
+ * Utility function to calculate the outbound vector of a refraction collision.
+ */
+bool refract(QVector3D direction, QVector3D normal, float refractiveIndex, QVector3D& outbound)
+{
+    float directionDotNormal = QVector3D::dotProduct(direction, normal);
+    float underSquareRoot = 1- (1- directionDotNormal*directionDotNormal)/(refractiveIndex*refractiveIndex);
+
+    if (underSquareRoot < 0) {
+        return false;
+    } else {
+        outbound = ((direction - directionDotNormal*normal)/refractiveIndex) - normal*sqrt(underSquareRoot);
+        return true;
+    }
 }
 
 /**
@@ -295,9 +319,10 @@ int GLWidget::intersectSpheres(QVector3D initialPosition, QVector3D direction, Q
 QColor GLWidget::rayColor(QVector3D rayOrigin, QVector3D rayDirection, int timesCalled) {
 
     int closestSphereIndex = -1;
+    float t;
     QVector3D intersectionPoint;
 
-    closestSphereIndex = intersectSpheres(rayOrigin, rayDirection, intersectionPoint);
+    closestSphereIndex = intersectSpheres(rayOrigin, rayDirection, intersectionPoint, t);
     QColor pixelColour(0,0,0);
 
     QVector3D normalVector;
@@ -322,7 +347,7 @@ QColor GLWidget::rayColor(QVector3D rayOrigin, QVector3D rayDirection, int times
         // No intersection with a sphere, see if we intersect with the floor.
         // distance t = (planeNormal dot (point on plane - rayOrigin)) / (planeNormal dot rayDirection)
         normalVector = QVector3D(0,1,0);
-        float t = QVector3D::dotProduct(normalVector, (QVector3D(0,0,0) - rayOrigin)) / (QVector3D::dotProduct(normalVector, rayDirection));
+        t = QVector3D::dotProduct(normalVector, (QVector3D(0,0,0) - rayOrigin)) / (QVector3D::dotProduct(normalVector, rayDirection));
         if (t > 0 && t < VIEW_DISTANCE) {
             intersectionPoint = rayOrigin + t*rayDirection.normalized();
             viewVector = (rayOrigin - intersectionPoint).normalized();
@@ -348,7 +373,8 @@ QColor GLWidget::rayColor(QVector3D rayOrigin, QVector3D rayDirection, int times
             QVector3D lightVector = (pointLights[i].position - intersectionPoint).normalized();
             QVector3D shadowCollisionPoint;
             // Test for objects in between light and intersection point
-            int shadowSphereIndex = intersectSpheres(intersectionPoint + lightVector, lightVector, shadowCollisionPoint);
+            float shadowDistance;
+            int shadowSphereIndex = intersectSpheres(intersectionPoint + lightVector, lightVector, shadowCollisionPoint, shadowDistance);
             if (shadowSphereIndex == -1) { // No intersection
                 //LAMBERTIAN DIFFUSE SHADING:
                 // L += surface Colour x lightIntensity x max(0,normal.lightVector)
@@ -374,14 +400,76 @@ QColor GLWidget::rayColor(QVector3D rayOrigin, QVector3D rayDirection, int times
                     pixelB += hitMaterial.specular.blueF()*pointLights[i].colour.blueF()*nDotH;
                 }
             }
-            //SPECULAR REFLECTION:
-            if (timesCalled < maxRayRecursion) {
-                QVector3D reflection = rayDirection - 2.0f*(QVector3D::dotProduct(rayDirection, normalVector))*normalVector;
-                // Add specularColor*(recursive call to raycolor) to our colour.
-                QColor tempColor = rayColor(intersectionPoint + reflection.normalized(), reflection.normalized(), timesCalled++);
-                pixelR += hitMaterial.specular.redF()*tempColor.redF();
-                pixelG += hitMaterial.specular.greenF()*tempColor.greenF();
-                pixelB += hitMaterial.specular.blueF()*tempColor.blueF();
+
+            //REFRACTION ATTEMPT:
+            if (hitMaterial.refractionIndex > 1.0f && timesCalled < maxRayRecursion) {
+                QVector3D outboundRefraction;
+                float c;
+                float kr;
+                float kg;
+                float kb;
+                bool computeRefraction = true;
+                if (QVector3D::dotProduct(rayDirection, normalVector) < 0) {
+                    // refract(vector direction, vector normal, float refractiveindex, vector outward) returns false if
+                    //      there is total internal reflection, or true if there is refraction and populates the ouward vector.
+
+                     refract(rayDirection,normalVector,hitMaterial.refractionIndex, outboundRefraction);
+                     c = QVector3D::dotProduct(-1*rayDirection, normalVector);
+                     kr = kg = kb = 1;
+                } else {
+                    if (refract(rayDirection, -normalVector, 1/hitMaterial.refractionIndex, outboundRefraction)) {
+                          c = QVector3D::dotProduct(outboundRefraction, normalVector);
+                     } else {
+                        //return k * color(p+tr)
+                        computeRefraction = false;
+
+                        QVector3D reflection = rayDirection - 2.0f*(QVector3D::dotProduct(rayDirection, normalVector))*normalVector;
+                        // Add specularColor*(recursive call to raycolor) to our colour.
+
+                        // TODO-DG: Tweak these 'A' values and find proper distance
+                        // kg = exp(-Ag t) // t is distance travelled through dielectric
+                        kr = exp(-100.0f * t);
+                        kg = exp(-100.0f * t);
+                        kb = exp(-100.0f * t);
+
+                        QColor tempColor = rayColor(intersectionPoint + reflection.normalized(), reflection.normalized(), timesCalled++);
+                        pixelR += kr*hitMaterial.specular.redF()*tempColor.redF();
+                        pixelG += kg*hitMaterial.specular.greenF()*tempColor.greenF();
+                        pixelB += kb*hitMaterial.specular.blueF()*tempColor.blueF();
+                     }
+                }
+                if (computeRefraction) {
+//                     R0 = (nn-1)^2/(n+1)^2
+//                     R = R0 + (1-R0)(1-c)^5
+//                     return k(Rcolor(p+tr) + (1-R) color(p+tt))
+//                     return k*(R * reflectionColor + (1-R)*refractionColor
+
+                    float reflectance = ((hitMaterial.refractionIndex -1)*(hitMaterial.refractionIndex -1)) /((hitMaterial.refractionIndex + 1)*hitMaterial.refractionIndex+1);
+                    float schlickApprox = reflectance + ((1 - reflectance)*pow((1-c),5));
+
+                    // Calculate reflection color:
+                    QVector3D reflection = rayDirection - 2.0f*(QVector3D::dotProduct(rayDirection, normalVector))*normalVector;
+                    // Add specularColor*(recursive call to raycolor) to our colour.
+                    QColor reflectionColor = rayColor(intersectionPoint + reflection.normalized(), reflection.normalized(), timesCalled++);
+
+                    // TODO-DG: Not sure if I need to increment timescalled in here, as it's just been incremented above.
+                    QColor refractionColor = rayColor(intersectionPoint + outboundRefraction.normalized(), outboundRefraction.normalized(), timesCalled++);
+
+                    pixelR += kr* (schlickApprox*reflectionColor.redF() + (1-schlickApprox)*refractionColor.redF());
+                    pixelG += kg* (schlickApprox*reflectionColor.greenF() + (1-schlickApprox)*refractionColor.greenF());
+                    pixelB += kb* (schlickApprox*reflectionColor.blueF() + (1-schlickApprox)*refractionColor.blueF());
+                }
+            } else {
+                // SPECULAR REFLECTION:
+                // Just specular reflection, there is no refraction
+                if (timesCalled < maxRayRecursion) {
+                    QVector3D reflection = rayDirection - 2.0f*(QVector3D::dotProduct(rayDirection, normalVector))*normalVector;
+                    // Add specularColor*(recursive call to raycolor) to our colour.
+                    QColor tempColor = rayColor(intersectionPoint + reflection.normalized(), reflection.normalized(), timesCalled++);
+                    pixelR += hitMaterial.specular.redF()*tempColor.redF();
+                    pixelG += hitMaterial.specular.greenF()*tempColor.greenF();
+                    pixelB += hitMaterial.specular.blueF()*tempColor.blueF();
+                }
             }
         }
 

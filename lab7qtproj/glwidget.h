@@ -44,7 +44,7 @@ private:
     void clear();
     void displayImage();
     void prepareImageDisplay(QImage* myimage); // converts from Qt to opengl format
-    int intersectSpheres(QVector3D initialPosition, QVector3D direction, QVector3D& intersectionPoint);
+    int intersectSpheres(QVector3D initialPosition, QVector3D direction, QVector3D& intersectionPoint, float& t);
     QColor rayColor(QVector3D rayOrigin, QVector3D rayDirection, int timesCalled);
 
     int renderWidth, renderHeight;
